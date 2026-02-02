@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Valentine?</title>
+  <style>
+    :root { --bg: #fff5f7; --card: #ffffff; --text: #1f2937; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at 20% 10%, #ffe4ec, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .card {
+      width: min(560px, 92vw);
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.12);
+      padding: 28px;
+      text-align: center;
+      position: relative;
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 40px); }
+    p { margin: 0 0 18px; opacity: .8; }
+
+    .stage {
+      position: relative;
+      height: 220px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fff, #fff1f5);
+      border: 1px solid rgba(0,0,0,.06);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 22px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .btn:active { transform: scale(.98); }
+
+    #yes {
+      background: #ff3b81;
+      color: white;
+      box-shadow: 0 12px 30px rgba(255, 59, 129, .35);
+      transform-origin: center;
+    }
+    #yes:hover { box-shadow: 0 14px 34px rgba(255, 59, 129, .45); }
+
+    /* The "No" button is positioned absolutely so it can dodge. */
+    #no {
+      position: absolute;
+      left: 58%;
+      top: 58%;
+      transform: translate(-50%, -50%);
+      background: #111827;
+      color: white;
+      box-shadow: 0 12px 30px rgba(17,24,39,.25);
+    }
+
+    .hearts {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .heart {
+      position: absolute;
+      font-size: 22px;
+      opacity: 0;
+      animation: floatUp 1400ms ease-out forwards;
+      filter: drop-shadow(0 10px 15px rgba(0,0,0,.12));
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(10px) scale(.8); opacity: 0; }
+      10%  { opacity: 1; }
+      100% { transform: translateY(-120px) scale(1.25); opacity: 0; }
+    }
+
+    /* Celebration overlay */
+    #celebrate {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 245, 247, 0.85);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 400ms ease;
+      z-index: 5;
+    }
+    #celebrate.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .yaaay {
+      font-size: clamp(48px, 8vw, 96px);
+      font-weight: 900;
+      color: #ff3b81;
+      text-shadow:
+        0 6px 0 #ffd1e1,
+        0 18px 40px rgba(255, 59, 129, 0.5);
+      animation: pop 700ms cubic-bezier(.2,1.4,.4,1) forwards,
+                 wiggle 1.6s ease-in-out infinite 700ms;
+      padding: 10px 18px;
+    }
+    @keyframes pop {
+      0%   { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+      60%  { transform: scale(1.15) rotate(4deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0); }
+    }
+    @keyframes wiggle {
+      0%   { transform: rotate(0deg); }
+      25%  { transform: rotate(2deg); }
+      50%  { transform: rotate(-2deg); }
+      75%  { transform: rotate(1deg); }
+      100% { transform: rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="title">Will you be my Valentine? 💘</h1>
+    <p id="subtitle">Choose wisely… 😈</p>
+
+    <div class="stage" id="stage">
+      <button class="btn" id="yes">Yes</button>
+      <button class="btn" id="no">No</button>
+
+      <div class="hearts" id="hearts"></div>
+
+      <div id="celebrate" aria-hidden="true">
+        <div class="yaaay">YAAAY!!! 💖🥰💘🎉</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const stage = document.getElementById("stage");
+    const yes = document.getElementById("yes");
+    const no = document.getElementById("no");
+    const title = document.getElementById("title");
+    const subtitle = document.getElementById("subtitle");
+    const hearts = document.getElementById("hearts");
+    const celebrate = document.getElementById("celebrate");
+
+    let yesScale = 1;
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function stageRect() { return stage.getBoundingClientRect(); }
+
+    function placeNo(x, y) {
+      const r = stageRect();
+      const btnR = no.getBoundingClientRect();
+
+      // Convert viewport coords -> stage-local coords
+      const localX = x - r.left;
+      const localY = y - r.top;
+
+      // Keep within stage bounds with padding
+      const pad = 14;
+      const maxX = r.width - btnR.width - pad;
+      const maxY = r.height - btnR.height - pad;
+
+      const newLeft = clamp(localX, pad, maxX);
+      const newTop  = clamp(localY, pad, maxY);
+
+      no.style.left = `${newLeft}px`;
+      no.style.top  = `${newTop}px`;
+      no.style.transform = "translate(0, 0)";
+    }
+
+    function randomSpotFarFrom(pointerX, pointerY) {
+      const r = stageRect();
+      const btnR = no.getBoundingClientRect();
+      const pad = 14;
+
+      // candidate random points
+      for (let i = 0; i < 20; i++) {
+        const x = pad + Math.random() * (r.width - btnR.width - pad*2);
+        const y = pad + Math.random() * (r.height - btnR.height - pad*2);
+
+        // distance from pointer (in stage coords)
+        const dx = x - (pointerX - r.left);
+        const dy = y - (pointerY - r.top);
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 110) return { x: r.left + x, y: r.top + y };
+      }
+
+      // fallback
+      return { x: r.left + pad, y: r.top + pad };
+    }
+
+    function dodge(ev) {
+      const px = ev.clientX ?? (ev.touches && ev.touches[0].clientX);
+      const py = ev.clientY ?? (ev.touches && ev.touches[0].clientY);
+      if (px == null || py == null) return;
+
+      const noR = no.getBoundingClientRect();
+      const cx = noR.left + noR.width / 2;
+      const cy = noR.top + noR.height / 2;
+
+      const dist = Math.hypot(px - cx, py - cy);
+
+      // If pointer is close, move away.
+      if (dist < 120) {
+        const spot = randomSpotFarFrom(px, py);
+        placeNo(spot.x, spot.y);
+      }
+    }
+
+    function popHearts(count = 10) {
+      const r = stageRect();
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement("div");
+        s.className = "heart";
+        s.textContent = Math.random() < 0.5 ? "💖" : "💘";
+        s.style.left = `${Math.random() * r.width}px`;
+        s.style.top = `${r.height - 20 + Math.random()*10}px`;
+        s.style.animationDelay = `${Math.random() * 220}ms`;
+        hearts.appendChild(s);
+        s.addEventListener("animationend", () => s.remove());
+      }
+    }
+
+    function showCelebrate() {
+      celebrate.classList.add("show");
+      celebrate.setAttribute("aria-hidden", "false");
+    }
+
+    // Make "Yes" get huge on each click
+    yes.addEventListener("click", () => {
+      yesScale = Math.min(yesScale + 0.6, 6); // cap it so it doesn't break layout
+      yes.style.transform = `scale(${yesScale})`;
+
+      popHearts(12);
+
+      if (yesScale >= 2.2) subtitle.textContent = "Omg you’re really choosing YES 😳";
+      if (yesScale >= 3.4) subtitle.textContent = "Correct answer detected ✅";
+
+      if (yesScale >= 4.8) {
+        title.textContent = "She said YES 💝";
+        subtitle.textContent = "Best decision ever 😌";
+        no.style.display = "none";
+        yes.textContent = "FOREVER 💕";
+        showCelebrate();
+        popHearts(25);
+      }
+    });
+
+    // Desktop dodge behavior
+    stage.addEventListener("mousemove", dodge);
+    no.addEventListener("mouseenter", (e) => dodge(e));
+
+    // Mobile/touch fallback: tap near "No" and it jumps
+    stage.addEventListener("touchstart", dodge, { passive: true });
+    no.addEventListener("click", (e) => {
+      // If she actually manages to click "No", still dodge.
+      const spot = randomSpotFarFrom(e.clientX || 0, e.clientY || 0);
+      placeNo(spot.x, spot.y);
+    });
+
+    // Initial positioning (in case layout changes)
+    window.addEventListener("resize", () => {
+      const r = stageRect();
+      placeNo(r.left + r.width * 0.62, r.top + r.height * 0.6);
+    });
+
+    // seed position once
+    const r0 = stageRect();
+    placeNo(r0.left + r0.width * 0.62, r0.top + r0.height * 0.6);
+  </script>
+</body>
+</html>
